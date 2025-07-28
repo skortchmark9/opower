@@ -5,7 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 import json
 import logging
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Callable
 from urllib.parse import urlencode
 
 import aiohttp
@@ -190,15 +190,16 @@ class Opower:
         self.user_accounts: list[Any] = []
         self.meters: list[str] = []
 
-    async def async_login(self) -> None:
+    async def async_login(self, mfa_callback: Optional[Callable] = None) -> None:
         """Login to the utility website and authorize opower.com for access.
 
+        :param mfa_callback: Optional async callback function to get MFA code
         :raises InvalidAuth: if login information is incorrect
         :raises CannotConnect: if we receive any HTTP error
         """
         try:
             self.access_token = await self.utility.async_login(
-                self.session, self.username, self.password, self.optional_mfa_secret
+                self.session, self.username, self.password, self.optional_mfa_secret, mfa_callback
             )
 
         except ClientResponseError as err:

@@ -1,6 +1,6 @@
 """Base class that each utility needs to extend."""
 
-from typing import Any, Optional
+from typing import Any, Optional, Callable
 
 import aiohttp
 
@@ -59,6 +59,7 @@ class UtilityBase:
         username: str,
         password: str,
         optional_mfa_secret: Optional[str],
+        mfa_callback: Optional[Callable] = None,
     ) -> Optional[str]:
         """Login to the utility website.
 

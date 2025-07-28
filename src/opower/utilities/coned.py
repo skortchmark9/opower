@@ -1,6 +1,6 @@
 """Consolidated Edison (ConEd)."""
 
-from typing import Optional
+from typing import Optional, Callable
 
 import aiohttp
 from pyotp import TOTP
@@ -52,6 +52,7 @@ class ConEd(UtilityBase):
         username: str,
         password: str,
         optional_mfa_secret: Optional[str],
+        mfa_callback: Optional[Callable] = None,
     ) -> str:
         """Login to the utility website."""
         hostname = cls.hostname()
@@ -94,24 +95,33 @@ class ConEd(UtilityBase):
             else:
                 if result["newDevice"]:
                     if not result["noMfa"]:
-                        if not optional_mfa_secret:
+                        # Use callback if provided, otherwise use TOTP secret
+                        if mfa_callback:
+                            # Call the async callback to get MFA code
+                            mfaCode = await mfa_callback()
+                        elif optional_mfa_secret:
+                            mfaCode = TOTP(optional_mfa_secret.strip()).now()
+                        else:
                             raise InvalidAuth(
-                                "TOTP secret is required for MFA accounts"
+                                "Either TOTP secret or MFA callback is required for MFA accounts"
                             )
 
-                        mfaCode = TOTP(optional_mfa_secret.strip()).now()
-
+                        print('Using MFA code:', mfaCode)
+                        print(type(mfaCode))
+                        payload = {
+                            "MFACode": mfaCode,
+                            "ReturnUrl": RETURN_URL,
+                            "OpenIdRelayState": "",
+                        }
+                        print(payload)
                         async with session.post(
                             login_base + "/VerifyFactor",
                             headers=login_headers,
-                            json={
-                                "MFACode": mfaCode,
-                                "ReturnUrl": RETURN_URL,
-                                "OpenIdRelayState": "",
-                            },
+                            json=payload,
                             raise_for_status=True,
                         ) as resp:
                             mfaResult = await resp.json()
+                            print(mfaResult)
                             if not mfaResult["code"]:
                                 raise InvalidAuth(
                                     "2FA code was invalid. Is the secret wrong?"
@@ -138,4 +148,6 @@ class ConEd(UtilityBase):
             headers=login_headers,
             raise_for_status=True,
         ) as resp:
-            return str(await resp.json())
+            out = str(await resp.json())
+            print(out)
+            return out
